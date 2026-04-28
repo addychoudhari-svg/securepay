@@ -22,6 +22,17 @@ obj/
 # User-specific files
 *.user
 *.suo
+
+# Never upload the database — contains user keys
+fintech.db
+
+# Python cache files
+__pycache__/
+*.pyc
+
+# Environment files
+.env
+venv/
 *.userosscache
 *.sln.docstates
 
