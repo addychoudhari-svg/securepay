@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>SecurePay — Transaction Signing System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0c0f;
+    --surface: #111318;
+    --surface2: #181c22;
+    --surface3: #1e232b;
+    --border: #2a303a;
+    --border2: #353c48;
+    --text: #e8ecf0;
+    --text2: #8a95a3;
+    --text3: #525c6a;
+    --accent: #00d4aa;
+    --accent2: #00a882;
+    --danger: #ff4d6d;
+    --danger2: #cc2244;
+    --warn: #ffb347;
+    --info: #4d9fff;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Grid background */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(0,212,170,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(0,212,170,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* Header */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 20px 0;
+    margin-bottom: 40px;
+  }
+  .header-inner { display: flex; align-items: center; gap: 16px; }
+  .logo {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.5px;
+    color: var(--accent);
+  }
+  .logo span { color: var(--text); }
+  .badge {
+    font-family: var(--mono); font-size: 10px;
+    background: rgba(0,212,170,0.1); color: var(--accent);
+    border: 1px solid rgba(0,212,170,0.25);
+    padding: 3px 8px; border-radius: 3px; letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+  .server-status {
+    margin-left: auto; display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 12px; color: var(--text2);
+  }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--text3);
+    transition: background 0.3s;
+  }
+  .dot.online { background: var(--accent); box-shadow: 0 0 8px var(--accent); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; margin-bottom: 28px; border-bottom: 1px solid var(--border); }
+  .tab {
+    font-family: var(--sans); font-size: 13px; font-weight: 600;
+    color: var(--text3); background: none; border: none;
+    padding: 10px 20px; cursor: pointer; border-bottom: 2px solid transparent;
+    margin-bottom: -1px; letter-spacing: 0.5px; text-transform: uppercase;
+    transition: color 0.2s, border-color 0.2s;
+  }
+  .tab:hover { color: var(--text2); }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 24px;
+    margin-bottom: 20px;
+  }
+  .card-title {
+    font-size: 12px; font-weight: 700; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--text3);
+    margin-bottom: 20px; display: flex; align-items: center; gap: 8px;
+  }
+  .card-title::before {
+    content: ''; display: block;
+    width: 3px; height: 14px; border-radius: 2px;
+    background: var(--accent);
+  }
+
+  /* Form elements */
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .form-row.single { grid-template-columns: 1fr; }
+  .form-row.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+  label { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 1px; text-transform: uppercase; display: block; margin-bottom: 6px; }
+
+  input, select {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 10px 14px;
+    font-family: var(--mono); font-size: 13px; color: var(--text);
+    outline: none; transition: border-color 0.2s;
+  }
+  input:focus, select:focus { border-color: var(--accent); }
+  input::placeholder { color: var(--text3); }
+
+  /* Buttons */
+  .btn {
+    font-family: var(--sans); font-size: 13px; font-weight: 700;
+    letter-spacing: 0.5px; text-transform: uppercase;
+    padding: 11px 24px; border: none; border-radius: 6px;
+    cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn-primary { background: var(--accent); color: #0a0c0f; }
+  .btn-primary:hover { background: #00f0c0; }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-danger:hover { background: #ff6680; }
+  .btn-warn { background: var(--warn); color: #0a0c0f; }
+  .btn-warn:hover { background: #ffc466; }
+  .btn-ghost {
+    background: transparent; color: var(--text2);
+    border: 1px solid var(--border2);
+  }
+  .btn-ghost:hover { border-color: var(--text2); color: var(--text); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+
+  .btn-group { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+
+  /* Result box */
+  .result {
+    margin-top: 16px; border-radius: 8px; padding: 16px 20px;
+    font-family: var(--mono); font-size: 12px; line-height: 1.7;
+    border-left: 3px solid var(--border2);
+    background: var(--surface2); display: none;
+  }
+  .result.visible { display: block; }
+  .result.success { border-left-color: var(--accent); background: rgba(0,212,170,0.05); }
+  .result.error   { border-left-color: var(--danger); background: rgba(255,77,109,0.05); }
+  .result.warn    { border-left-color: var(--warn); background: rgba(255,179,71,0.05); }
+
+  .status-icon { font-size: 18px; margin-right: 4px; }
+
+  /* Payload editor */
+  .payload-box {
+    width: 100%; min-height: 160px; background: var(--surface2);
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 14px; font-family: var(--mono); font-size: 12px;
+    color: var(--text); resize: vertical; outline: none;
+    line-height: 1.7; transition: border-color 0.2s;
+  }
+  .payload-box:focus { border-color: var(--accent); }
+
+  /* Key display */
+  .key-display {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 12px 14px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--text2); line-height: 1.6; word-break: break-all;
+    max-height: 120px; overflow-y: auto;
+  }
+
+  /* Audit log table */
+  .audit-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  .audit-table th {
+    text-align: left; padding: 10px 14px;
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    color: var(--text3); letter-spacing: 1px; text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+  }
+  .audit-table td {
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px; color: var(--text2);
+    vertical-align: top;
+  }
+  .audit-table tr:hover td { background: var(--surface2); }
+
+  .event-badge {
+    display: inline-block; padding: 2px 8px; border-radius: 3px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+  .ev-verified  { background: rgba(0,212,170,0.12); color: var(--accent); }
+  .ev-signed    { background: rgba(77,159,255,0.12); color: var(--info); }
+  .ev-tamper    { background: rgba(255,77,109,0.12); color: var(--danger); }
+  .ev-replay    { background: rgba(255,179,71,0.12); color: var(--warn); }
+
+  /* Pipeline visualization */
+  .pipeline { display: flex; align-items: center; gap: 0; margin: 20px 0; flex-wrap: wrap; }
+  .pipe-step {
+    display: flex; flex-direction: column; align-items: center;
+    padding: 10px 14px; background: var(--surface2);
+    border: 1px solid var(--border); font-size: 11px; text-align: center;
+    min-width: 110px; transition: all 0.3s;
+  }
+  .pipe-step:first-child { border-radius: 6px 0 0 6px; }
+  .pipe-step:last-child { border-radius: 0 6px 6px 0; }
+  .pipe-step + .pipe-step { border-left: none; }
+  .pipe-step .step-num { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-bottom: 4px; }
+  .pipe-step .step-name { font-weight: 700; color: var(--text2); font-size: 11px; }
+  .pipe-step.pass { border-color: var(--accent); background: rgba(0,212,170,0.07); }
+  .pipe-step.pass .step-name { color: var(--accent); }
+  .pipe-step.fail { border-color: var(--danger); background: rgba(255,77,109,0.07); }
+  .pipe-step.fail .step-name { color: var(--danger); }
+  .pipe-step.active { border-color: var(--info); background: rgba(77,159,255,0.07); }
+  .pipe-step.active .step-name { color: var(--info); }
+
+  .pipe-arrow { color: var(--text3); font-size: 16px; padding: 0 2px; }
+
+  /* Txn list */
+  .txn-list { display: flex; flex-direction: column; gap: 10px; }
+  .txn-item {
+    background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 8px; padding: 14px 18px;
+    display: flex; align-items: center; gap: 16px;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .txn-status { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .txn-status.accepted { background: var(--accent); box-shadow: 0 0 6px var(--accent); }
+  .txn-status.rejected { background: var(--danger); }
+  .txn-amount { font-weight: 500; color: var(--text); min-width: 80px; }
+  .txn-route { color: var(--text2); flex: 1; }
+  .txn-id { color: var(--text3); font-size: 10px; }
+  .txn-time { color: var(--text3); font-size: 10px; margin-left: auto; }
+
+  /* Loader */
+  .spinner {
+    display: inline-block; width: 14px; height: 14px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: currentColor; border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Divider */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 24px 0; }
+
+  /* Section header */
+  .section-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title { font-size: 14px; font-weight: 700; color: var(--text); }
+
+  /* Highlight tampered field */
+  .tamper-hint { font-size: 11px; color: var(--warn); margin-top: 6px; font-family: var(--mono); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container">
+    <div class="header-inner">
+      <div class="logo">Secure<span>Pay</span></div>
+      <div class="badge">ECDSA P-256</div>
+      <div class="badge" style="background:rgba(77,159,255,0.1);color:var(--info);border-color:rgba(77,159,255,0.25)">SHA-256</div>
+      <div class="badge" style="background:rgba(255,179,71,0.1);color:var(--warn);border-color:rgba(255,179,71,0.25)">bcrypt</div>
+      <div class="server-status">
+        <div class="dot" id="server-dot"></div>
+        <span id="server-label">checking...</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('setup')">1 · Setup Keys</button>
+    <button class="tab" onclick="switchTab('sign')">2 · Sign & Send</button>
+    <button class="tab" onclick="switchTab('tamper')">3 · Tamper Test</button>
+    <button class="tab" onclick="switchTab('replay')">4 · Replay Attack</button>
+    <button class="tab" onclick="switchTab('audit')">5 · Audit Log</button>
+  </div>
+
+  <!-- ── PANEL 1: Setup ── -->
+  <div class="panel active" id="panel-setup">
+    <div class="card">
+      <div class="card-title">Generate ECDSA keypair for a user</div>
+      <div class="form-row">
+        <div>
+          <label>User ID</label>
+          <input type="text" id="gen-user" placeholder="e.g. alice" value="alice"/>
+        </div>
+        <div>
+          <label>Password (used to encrypt private key)</label>
+          <input type="password" id="gen-pass" placeholder="min 8 chars" value="secret123"/>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="generateKeys()">
+          <span>Generate keys</span>
+        </button>
+        <button class="btn btn-ghost" onclick="quickSetup()">Quick setup (alice + bob)</button>
+      </div>
+      <div class="result" id="gen-result"></div>
+    </div>
+
+    <div class="card" id="key-display-card" style="display:none">
+      <div class="card-title">Generated public key</div>
+      <label>User</label>
+      <div class="key-display" id="gen-pubkey-display"></div>
+      <p style="font-size:11px;color:var(--text3);margin-top:10px;font-family:var(--mono)">
+        ✓ Private key AES-256 encrypted (never leaves the server) &nbsp;|&nbsp;
+        ✓ Password stored as bcrypt hash &nbsp;|&nbsp;
+        ✓ Public key stored in plaintext
+      </p>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Registered users</div>
+      <div id="users-list" style="font-family:var(--mono);font-size:12px;color:var(--text2)">Loading...</div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 2: Sign & Send ── -->
+  <div class="panel" id="panel-sign">
+    <div class="card">
+      <div class="card-title">Build & sign a transaction</div>
+      <div class="form-row triple">
+        <div>
+          <label>Sender</label>
+          <input type="text" id="sign-sender" placeholder="alice"/>
+        </div>
+        <div>
+          <label>Password</label>
+          <input type="password" id="sign-pass" placeholder="secret123"/>
+        </div>
+        <div>
+          <label>Receiver</label>
+          <input type="text" id="sign-receiver" placeholder="bob"/>
+        </div>
+      </div>
+      <div class="form-row">
+        <div>
+          <label>Amount</label>
+          <input type="number" id="sign-amount" placeholder="150.00" step="0.01" value="150"/>
+        </div>
+        <div>
+          <label>Currency</label>
+          <input type="text" id="sign-currency" placeholder="USD" value="USD" maxlength="3"/>
+        </div>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="signAndSubmit()">Sign &amp; submit</button>
+      </div>
+      <div class="result" id="sign-result"></div>
+    </div>
+
+    <div class="card" id="signed-envelope-card" style="display:none">
+      <div class="card-title">Signed envelope (what travels over the wire)</div>
+      <label>Payload</label>
+      <div class="key-display" id="signed-payload-display" style="max-height:160px"></div>
+      <label style="margin-top:14px">Signature (ECDSA DER hex)</label>
+      <div class="key-display" id="signed-sig-display"></div>
+    </div>
+
+    <!-- Verification pipeline -->
+    <div class="card" id="pipeline-card" style="display:none">
+      <div class="card-title">Verification pipeline</div>
+      <div class="pipeline" id="pipeline">
+        <div class="pipe-step" id="ps-1"><div class="step-num">01</div><div class="step-name">Fields</div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="ps-2"><div class="step-num">02</div><div class="step-name">Timestamp</div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="ps-3"><div class="step-num">03</div><div class="step-name">Nonce</div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="ps-4"><div class="step-num">04</div><div class="step-name">Signature</div></div>
+        <div class="pipe-arrow">›</div>
+        <div class="pipe-step" id="ps-5"><div class="step-num">05</div><div class="step-name">Commit</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 3: Tamper ── -->
+  <div class="panel" id="panel-tamper">
+    <div class="card">
+      <div class="card-title">Tamper detection — edit the payload then verify</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px;font-family:var(--mono)">
+        Sign a transaction first (tab 2), then come back here and modify any field — 
+        change the amount, receiver, or anything. The server will detect the mismatch 
+        between the payload and the signature.
+      </p>
+
+      <div class="btn-group" style="margin-bottom:16px">
+        <button class="btn btn-ghost" onclick="loadLastEnvelope()">Load last signed envelope</button>
+      </div>
+
+      <label>Payload (edit to tamper)</label>
+      <textarea class="payload-box" id="tamper-payload" spellcheck="false"></textarea>
+      <div class="tamper-hint" id="tamper-hint" style="display:none"></div>
+
+      <label style="margin-top:14px">Signature (leave unchanged)</label>
+      <textarea class="payload-box" id="tamper-sig" style="min-height:60px" spellcheck="false"></textarea>
+
+      <div class="btn-group" style="margin-top:16px">
+        <button class="btn btn-danger" onclick="tamperAmount()">Tamper: double the amount</button>
+        <button class="btn btn-danger" onclick="tamperReceiver()">Tamper: change receiver</button>
+        <button class="btn btn-warn" onclick="submitTampered()">Submit tampered payload</button>
+      </div>
+      <div class="result" id="tamper-result"></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 4: Replay ── -->
+  <div class="panel" id="panel-replay">
+    <div class="card">
+      <div class="card-title">Replay attack — resubmit an accepted transaction</div>
+      <p style="font-size:12px;color:var(--text2);margin-bottom:16px;font-family:var(--mono)">
+        The envelope below is a valid, accepted transaction (identical payload + valid signature).
+        Resubmitting it simulates a replay attack where an attacker captures and resends a 
+        legitimate transaction. The server detects the duplicate nonce.
+      </p>
+      <div class="btn-group" style="margin-bottom:16px">
+        <button class="btn btn-ghost" onclick="loadLastEnvelope('replay')">Load last accepted envelope</button>
+      </div>
+
+      <label>Payload (untouched — valid signature)</label>
+      <textarea class="payload-box" id="replay-payload" spellcheck="false"></textarea>
+      <label style="margin-top:14px">Signature</label>
+      <textarea class="payload-box" id="replay-sig" style="min-height:60px" spellcheck="false"></textarea>
+
+      <div class="btn-group" style="margin-top:16px">
+        <button class="btn btn-danger" onclick="submitReplay()">Replay attack — resubmit</button>
+      </div>
+      <div class="result" id="replay-result"></div>
+    </div>
+  </div>
+
+  <!-- ── PANEL 5: Audit ── -->
+  <div class="panel" id="panel-audit">
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title">Cryptographic audit trail</div>
+        <button class="btn btn-ghost" onclick="loadAudit()" style="padding:7px 14px;font-size:11px">Refresh</button>
+      </div>
+      <div id="audit-content">
+        <table class="audit-table">
+          <thead>
+            <tr>
+              <th>#</th><th>Event</th><th>Transaction ID</th><th>Detail</th><th>Logged at</th>
+            </tr>
+          </thead>
+          <tbody id="audit-body">
+            <tr><td colspan="5" style="color:var(--text3);text-align:center;padding:24px">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-header">
+        <div class="section-title">Recent transactions</div>
+        <button class="btn btn-ghost" onclick="loadTransactions()" style="padding:7px 14px;font-size:11px">Refresh</button>
+      </div>
+      <div class="txn-list" id="txn-list">
+        <div style="font-family:var(--mono);font-size:12px;color:var(--text3)">Loading...</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /container -->
+
+<script>
+const API = 'http://localhost:5000';
+let lastEnvelope = null; // { payload, signature }
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i) => {
+    t.classList.toggle('active', ['setup','sign','tamper','replay','audit'][i] === name);
+  });
+  document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('panel-' + name).classList.add('active');
+  if (name === 'audit') { loadAudit(); loadTransactions(); }
+  if (name === 'setup') loadUsers();
+}
+
+// ── Server health check ────────────────────────────────────────────────────
+
+async function checkServer() {
+  try {
+    const r = await fetch(API + '/users');
+    const ok = r.ok;
+    document.getElementById('server-dot').className = 'dot ' + (ok ? 'online' : '');
+    document.getElementById('server-label').textContent = ok ? 'server online' : 'server error';
+  } catch {
+    document.getElementById('server-label').textContent = 'server offline';
+  }
+}
+checkServer();
+setInterval(checkServer, 10000);
+
+// ── API helpers ────────────────────────────────────────────────────────────
+
+async function post(path, body) {
+  const r = await fetch(API + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const data = await r.json();
+  return { ok: r.ok, status: r.status, data };
+}
+
+async function get(path) {
+  const r = await fetch(API + path);
+  return r.json();
+}
+
+function showResult(id, type, html) {
+  const el = document.getElementById(id);
+  el.className = 'result visible ' + type;
+  el.innerHTML = html;
+}
+
+// ── Key generation ─────────────────────────────────────────────────────────
+
+async function generateKeys() {
+  const user_id  = document.getElementById('gen-user').value.trim();
+  const password = document.getElementById('gen-pass').value.trim();
+  if (!user_id || !password) return showResult('gen-result', 'error', '⚠ user_id and password are required');
+
+  showResult('gen-result', '', '<span class="spinner"></span> Generating ECDSA P-256 keypair…');
+
+  const { ok, data } = await post('/keys/generate', { user_id, password });
+  if (ok) {
+    showResult('gen-result', 'success',
+      `✅ Keypair generated for <b>${data.user_id}</b><br>
+       Private key: AES-256 encrypted in DB<br>
+       Password: stored as bcrypt hash<br>
+       Public key: stored in plaintext`
+    );
+    document.getElementById('gen-pubkey-display').textContent = data.public_key;
+    document.getElementById('key-display-card').style.display = 'block';
+    loadUsers();
+  } else {
+    showResult('gen-result', 'error', `❌ ${data.error}`);
+  }
+}
+
+async function quickSetup() {
+  for (const [user, pass] of [['alice','secret123'],['bob','bobpass456']]) {
+    await post('/keys/generate', { user_id: user, password: pass });
+  }
+  showResult('gen-result', 'success', '✅ alice and bob created with passwords secret123 / bobpass456');
+  loadUsers();
+}
+
+async function loadUsers() {
+  const users = await get('/users');
+  const el = document.getElementById('users-list');
+  if (!users.length) { el.textContent = 'No users yet.'; return; }
+  el.innerHTML = users.map(u =>
+    `<div style="padding:6px 0;border-bottom:1px solid var(--border)">
+      <span style="color:var(--accent)">${u.id}</span>
+      <span style="color:var(--text3);margin-left:12px">registered ${u.created_at.split('T')[0]}</span>
+    </div>`
+  ).join('');
+}
+loadUsers();
+
+// ── Sign & submit ──────────────────────────────────────────────────────────
+
+async function signAndSubmit() {
+  const sender   = document.getElementById('sign-sender').value.trim();
+  const password = document.getElementById('sign-pass').value.trim();
+  const receiver = document.getElementById('sign-receiver').value.trim();
+  const amount   = document.getElementById('sign-amount').value;
+  const currency = document.getElementById('sign-currency').value.trim();
+
+  if (!sender || !password || !receiver || !amount)
+    return showResult('sign-result', 'error', '⚠ All fields required');
+
+  showResult('sign-result', '', '<span class="spinner"></span> Signing transaction…');
+  resetPipeline();
+
+  // Step 1: Sign
+  const signRes = await post('/transactions/sign', { user_id: sender, password, receiver, amount: parseFloat(amount), currency });
+  if (!signRes.ok) return showResult('sign-result', 'error', `❌ Signing failed: ${signRes.data.error}`);
+
+  const { payload, signature } = signRes.data;
+  lastEnvelope = { payload, signature };
+
+  document.getElementById('signed-payload-display').textContent = JSON.stringify(payload, null, 2);
+  document.getElementById('signed-sig-display').textContent = signature;
+  document.getElementById('signed-envelope-card').style.display = 'block';
+  document.getElementById('pipeline-card').style.display = 'block';
+
+  showResult('sign-result', '', '<span class="spinner"></span> Submitting to verification pipeline…');
+
+  // Animate pipeline
+  animatePipeline(async () => {
+    const subRes = await post('/transactions/submit', { payload, signature });
+    if (subRes.ok) {
+      setPipelineStep(5, 'pass');
+      showResult('sign-result', 'success',
+        `✅ Transaction accepted<br>
+         txn_id: ${payload.txn_id}<br>
+         ${payload.amount} ${payload.currency} from ${payload.sender} → ${payload.receiver}`
+      );
+    } else {
+      setPipelineStep(4, 'fail');
+      showResult('sign-result', 'error', `❌ Rejected: ${subRes.data.error}`);
+    }
+    return subRes.ok;
+  });
+}
+
+function resetPipeline() {
+  [1,2,3,4,5].forEach(i => {
+    const el = document.getElementById('ps-' + i);
+    el.className = 'pipe-step';
+  });
+}
+
+function setPipelineStep(n, state) {
+  const el = document.getElementById('ps-' + n);
+  if (el) el.className = 'pipe-step ' + state;
+}
+
+async function animatePipeline(onComplete) {
+  for (let i = 1; i <= 4; i++) {
+    setPipelineStep(i, 'active');
+    await sleep(300);
+    setPipelineStep(i, 'pass');
+  }
+  setPipelineStep(5, 'active');
+  const ok = await onComplete();
+  if (!ok) { setPipelineStep(5, 'fail'); }
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ── Tamper test ────────────────────────────────────────────────────────────
+
+function loadLastEnvelope(target = 'tamper') {
+  if (!lastEnvelope) {
+    return alert('Sign a transaction first (tab 2)');
+  }
+  if (target === 'tamper') {
+    document.getElementById('tamper-payload').value = JSON.stringify(lastEnvelope.payload, null, 2);
+    document.getElementById('tamper-sig').value = lastEnvelope.signature;
+    document.getElementById('tamper-hint').style.display = 'none';
+  } else {
+    document.getElementById('replay-payload').value = JSON.stringify(lastEnvelope.payload, null, 2);
+    document.getElementById('replay-sig').value = lastEnvelope.signature;
+  }
+}
+
+function tamperAmount() {
+  try {
+    const p = JSON.parse(document.getElementById('tamper-payload').value);
+    const orig = p.amount;
+    p.amount = parseFloat((p.amount * 2).toFixed(2));
+    document.getElementById('tamper-payload').value = JSON.stringify(p, null, 2);
+    const hint = document.getElementById('tamper-hint');
+    hint.style.display = 'block';
+    hint.textContent = `⚡ amount changed: ${orig} → ${p.amount} (signature still points to original payload)`;
+  } catch { alert('Load a valid envelope first'); }
+}
+
+function tamperReceiver() {
+  try {
+    const p = JSON.parse(document.getElementById('tamper-payload').value);
+    const orig = p.receiver;
+    p.receiver = 'attacker';
+    document.getElementById('tamper-payload').value = JSON.stringify(p, null, 2);
+    const hint = document.getElementById('tamper-hint');
+    hint.style.display = 'block';
+    hint.textContent = `⚡ receiver changed: "${orig}" → "attacker" (signature still points to original payload)`;
+  } catch { alert('Load a valid envelope first'); }
+}
+
+async function submitTampered() {
+  let payload, signature;
+  try {
+    payload   = JSON.parse(document.getElementById('tamper-payload').value);
+    signature = document.getElementById('tamper-sig').value.trim();
+  } catch { return showResult('tamper-result', 'error', '⚠ Invalid JSON in payload'); }
+
+  showResult('tamper-result', '', '<span class="spinner"></span> Submitting tampered payload…');
+
+  const { ok, data } = await post('/transactions/submit', { payload, signature });
+  if (ok) {
+    showResult('tamper-result', 'warn', '⚠ Unexpectedly accepted — check server');
+  } else {
+    showResult('tamper-result', 'error',
+      `🛡 Tamper detected and rejected<br>
+       Reason: ${data.error}<br><br>
+       The SHA-256 digest of the modified payload does not match the ECDSA signature,
+       which was computed on the original payload. Any single byte change causes a 
+       completely different digest.`
+    );
+  }
+}
+
+// ── Replay attack ──────────────────────────────────────────────────────────
+
+async function submitReplay() {
+  let payload, signature;
+  try {
+    payload   = JSON.parse(document.getElementById('replay-payload').value);
+    signature = document.getElementById('replay-sig').value.trim();
+  } catch { return showResult('replay-result', 'error', '⚠ Invalid JSON in payload'); }
+
+  showResult('replay-result', '', '<span class="spinner"></span> Submitting replay…');
+
+  const { ok, data } = await post('/transactions/submit', { payload, signature });
+  if (ok) {
+    showResult('replay-result', 'warn', '⚠ Unexpectedly accepted — check server');
+  } else {
+    showResult('replay-result', 'error',
+      `🛡 Replay attack blocked<br>
+       Reason: ${data.error}<br><br>
+       The nonce <code>${payload.nonce}</code> was already used in a previous transaction.
+       Even though the signature is valid, the server rejects any nonce seen within 
+       the 5-minute replay window.`
+    );
+  }
+}
+
+// ── Audit log ──────────────────────────────────────────────────────────────
+
+async function loadAudit() {
+  const logs = await get('/audit');
+  const body = document.getElementById('audit-body');
+  if (!logs.length) {
+    body.innerHTML = '<tr><td colspan="5" style="color:var(--text3);text-align:center;padding:24px">No audit entries yet</td></tr>';
+    return;
+  }
+  const evClass = {
+    'VERIFIED': 'ev-verified', 'SIGNED': 'ev-signed',
+    'REJECTED_TAMPER': 'ev-tamper', 'REJECTED_REPLAY': 'ev-replay'
+  };
+  body.innerHTML = logs.map(l => `
+    <tr>
+      <td style="color:var(--text3)">${l.id}</td>
+      <td><span class="event-badge ${evClass[l.event_type] || ''}">${l.event_type}</span></td>
+      <td style="color:var(--text2);font-size:10px">${l.txn_id.split('-')[0]}…</td>
+      <td style="color:var(--text2);max-width:280px">${l.detail}</td>
+      <td style="color:var(--text3)">${l.logged_at.replace('T',' ').split('.')[0]}</td>
+    </tr>
+  `).join('');
+}
+
+async function loadTransactions() {
+  const txns = await get('/transactions');
+  const el = document.getElementById('txn-list');
+  if (!txns.length) { el.innerHTML = '<div style="font-family:var(--mono);font-size:12px;color:var(--text3)">No transactions yet</div>'; return; }
+  el.innerHTML = txns.map(t => `
+    <div class="txn-item">
+      <div class="txn-status ${t.status.toLowerCase()}"></div>
+      <div class="txn-amount">${t.amount} ${t.currency}</div>
+      <div class="txn-route">${t.sender} → ${t.receiver}</div>
+      <div class="txn-id">${t.txn_id.split('-')[0]}…</div>
+      <div class="txn-time">${t.created_at.replace('T',' ').split('.')[0]}</div>
+    </div>
+  `).join('');
+}
+</script>
+</body>
+</html>
